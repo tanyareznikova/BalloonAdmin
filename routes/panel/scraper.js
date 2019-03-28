@@ -1,7 +1,8 @@
 var express = require("express");
 var router = express.Router();
-var Article = require("../model/article");
-var Comment = require("../model/comment");
+var Product = require("../../model/product");
+var Category = require("../../model/category");
+var Review = require("../../model/productReview");
 
 // Our scraping tools
 // Axios is a promised-based http library, similar to jQuery's Ajax method
@@ -11,8 +12,8 @@ var cheerio = require("cheerio");
 
 /* GET home page. */
 router.get("/", function(req, res, next) {
-  Article.find({})
-    .sort([["scrapedAt", -1]])
+  Product.find({})
+    .sort([["createdAt", -1]])
     .exec(function(err, docs) {
       var totalArticles = docs.length;
       var articleChunks = [];
@@ -30,8 +31,8 @@ router.get("/", function(req, res, next) {
 });
 
 router.get("/saved", function(req, res, next) {
-  Article.find({ isSaved: true })
-    .sort([["scrapedAt", -1]])
+  Product.find({ isSaved: true })
+    .sort([["createdAt", -1]])
     .exec(function(err, docs) {
       var totalSavedArticles = docs.length;
       var articleChunks = [];
@@ -50,7 +51,7 @@ router.get("/saved", function(req, res, next) {
 
 // Clean up databased by removing unsaved articles
 router.get("/delete", function(req, res, next) {
-  Article.deleteMany({ isSaved: false }, function(err, data) {
+  Product.deleteMany({ isSaved: false }, function(err, data) {
     if (err) return handleError(err);
     res.redirect("/");
   });
@@ -58,9 +59,9 @@ router.get("/delete", function(req, res, next) {
 
 router.get("/save-article/:id", function(req, res) {
   var articleId = req.params.id;
-  Article.findById(articleId, function(err, article) {
+  Product.findById(articleId, function(err, article) {
     if (article.isSaved) {
-      Article.findByIdAndUpdate(
+      Product.findByIdAndUpdate(
         // id
         req.params.id,
         // update
@@ -73,7 +74,7 @@ router.get("/save-article/:id", function(req, res) {
         }
       );
     } else {
-      Article.findByIdAndUpdate(
+      Product.findByIdAndUpdate(
         // id
         req.params.id,
         // update
@@ -82,7 +83,7 @@ router.get("/save-article/:id", function(req, res) {
         { new: true },
         // callback
         function(err, data) {
-          res.redirect("../views/productScraper/saved");
+          res.redirect("/saved");
         }
       );
     }
@@ -90,24 +91,24 @@ router.get("/save-article/:id", function(req, res) {
 });
 
 router.get("/scrape/:section", function(req, res) {
-  var section = req.params.section;
+  var smartfony = req.params.smartfony;
   var sectionUrl = "";
 
-  switch (section) {
-    case "us":
-      sectionUrl = "https://www.nytimes.com/section/us";
+  switch (smartfony) {
+    case "all":
+      sectionUrl = "https://www.citilink.ru/catalog/mobile/smartfony/";
       break;
-    case "business":
-      sectionUrl = "https://www.nytimes.com/section/business";
+    case "huawei":
+      sectionUrl = "https://www.citilink.ru/catalog/mobile/smartfony/?available=1&status=55395790&p=1&f=1376_214HUAWEI";
       break;
-    case "tech":
-      sectionUrl = "https://www.nytimes.com/section/technology";
+    case "honor":
+      sectionUrl = "https://www.citilink.ru/catalog/mobile/smartfony/?available=1&status=55395790&p=1&f=1376_214HONOR";
       break;
-    case "travel":
-      sectionUrl = "https://www.nytimes.com/section/travel";
+    case "apple":
+      sectionUrl = "https://www.citilink.ru/catalog/mobile/smartfony/?available=1&status=55395790&p=1&f=1376_214APPLE";
       break;
-    case "style":
-      sectionUrl = " https://www.nytimes.com/section/style";
+    case "samsung":
+      sectionUrl = "https://www.citilink.ru/catalog/mobile/smartfony/?available=1&status=55395790&p=1&f=1376_214SAMSUNG";
       break;
     default:
     // code block
@@ -116,44 +117,63 @@ router.get("/scrape/:section", function(req, res) {
     // Then, we load that into cheerio and save it to $ for a shorthand selector
     var $ = cheerio.load(response.data);
     var result = {};
-    $("div.css-4jyr1y").each(function(i, element) {
+    $("div.js--subcategory-product-item").each(function(i, element) {
       var link = $(element)
         .find("a")
         .attr("href");
       var title = $(element)
-        .find("h2.e1xfvim30")
+        .find("span.h3")
         .text()
         .trim();
+      /*
       var description = $(element)
-        .find("p.e1xfvim31")
+        .find("div.b-product-view-about__tech-block")
         .text()
         .trim();
-      var imagePath = $(element)
+      var attribute = $(element)
+          .find("table.b-product-view-box__tech-chars-table")
+          .find("tr")
+          .text()
+          .trim();
+          */
+      var price = $(element)
+          .find("ins.subcategory-product-item__price-num")
+          .text()
+          .trim();
+      var imgUrl = $(element)
         .parent()
-        .find("figure.css-196wev6")
+        .find("div.wrap-img")
         .find("img")
         .attr("src");
-      var baseURL = "https://www.nytimes.com";
+      var baseURL = "https://www.citilink.ru";
       result.link = baseURL + link;
       result.title = title;
+      /*
       if (description) {
         result.description = description;
       }
-      if (imagePath) {
-        result.imagePath = imagePath;
+      if (attribute) {
+        result.attribute = attribute;
+      }
+      */
+      if (price) {
+        result.price = price;
+      }
+      if (imgUrl) {
+        result.imgUrl = imgUrl;
       } else {
-        result.imagePath =
+        result.imgUrl =
           "https://via.placeholder.com/205x137.png?text=No%20Image%20from%20NYTimes";
       }
 
-      if (section !== "us") {
-        result.section = section;
+      if (smartfony !== "all") {
+        result.smartfony = smartfony;
       } else {
-        result.section = "U.S.";
+        result.smartfony = "Все смартфоны";
       }
 
       // Create a new Article using the `result` object built from scraping
-      Article.create(result)
+      Product.create(result)
         .then(function(dbArticle) {
           // View the added result in the console
           console.log("---------------------------");
@@ -172,32 +192,34 @@ router.get("/scrape/:section", function(req, res) {
 // Route for grabbing a specific Article by id, populate it with it's note
 router.get("/articles/:id", function(req, res) {
   // Using the id passed in the id parameter, prepare a query that finds the matching one in our db...
-  Article.findOne({ _id: req.params.id })
+  Product.findOne({ _id: req.params.id })
     // ..and populate all of the comments associated with it
-    .populate("comments")
+    .populate("productReviews")
     .then(function(dbArticle) {
       // If there are comments in the article
       var commentsToDisplay = [];
 
-      if (dbArticle.comments === undefined || dbArticle.comments.length === 0) {
+      if (dbArticle.productReviews === undefined || dbArticle.productReviews.length === 0) {
         commentsToDisplay = [
           {
-            commentBody: "Your are the first person to comment.",
-            username: "N/A"
+            message: "Your are the first person to comment.",
+            name: "N/A"
           }
         ];
       } else {
-        commentsToDisplay = dbArticle.comments;
+        commentsToDisplay = dbArticle.productReviews;
       }
 
       res.render("../views/productScraper/article/index", {
-        articleId: dbArticle._id,
-        imagePath: dbArticle.imagePath,
+        productID: dbArticle._id,
+        imgUrl: dbArticle.imgUrl,
         title: dbArticle.title,
-        description: dbArticle.description,
-        section: dbArticle.section,
+        //description: dbArticle.description,
+        //attribute: dbArticle.attribute,
+        price: dbArticle.price,
+        smartfony: dbArticle.smartfony,
         link: dbArticle.link,
-        comments: commentsToDisplay,
+        productReviews: commentsToDisplay,
         date: dbArticle.date,
         isSaved: dbArticle.isSaved,
         buttonStatus: dbArticle.buttonStatus
@@ -210,27 +232,27 @@ router.get("/articles/:id", function(req, res) {
 
 // Route for saving/updating an Article's associated Comment
 router.post("/articles/:id", function(req, res) {
-  var redirectBackToArticle = `/panel/productScraper/articles/${req.params.id}`;
-  var articleId = req.params.id;
+  var redirectBackToArticle = `/articles/${req.params.id}`;
+  var productID = req.params.id;
 
   // Grab the request body
   var body = req.body;
   // Each property on the body all represent our text boxes in article/index.hbs as specified by the name attribute on each of those input fields
   var res_body = {
-    commentBody: body.new_comment_body,
-    username: body.new_comment_username,
-    articleId: articleId
+    message: body.new_comment_body,
+    name: body.new_comment_username,
+    productID: productID
   };
 
   // Create a new note and pass the req.body to the entry
-  Comment.create(res_body)
+  Review.create(res_body)
     .then(function(dbComment) {
       // If a Comment was created successfully, find one Article with an `_id` equal to `req.params.id`. Update the Article to be associated with the new Note
       // { new: true } tells the query that we want it to return the updated Article -- it returns the original by default
       // Since our mongoose query returns a promise, we can chain another `.then` which receives the result of the query
-      return Article.findOneAndUpdate(
+      return Product.findOneAndUpdate(
         { _id: req.params.id },
-        { $push: { comments: dbComment._id } },
+        { $push: { productReviews: dbComment._id } },
         { new: true }
       );
     })
@@ -246,17 +268,17 @@ router.post("/articles/:id", function(req, res) {
 
 // Clean up databased by removing unsaved articles
 router.get("/deletecomment/:id", function(req, res, next) {
-  var articleId = "";
+  var productID = "";
 
   // Grab article Id from the database
-  Comment.findById({ _id: req.params.id }).exec(function(err, doc) {
+  Review.findById({ _id: req.params.id }).exec(function(err, doc) {
     console.log(doc);
-    articleId = doc.articleId;
+    productID = doc.productID;
 
-    var redirectBackToArticle = `/articles/${articleId}`;
+    var redirectBackToArticle = `/articles/${productID}`;
     console.log(redirectBackToArticle);
 
-    Comment.deleteOne({ _id: req.params.id }, function(err, data) {
+    Review.deleteOne({ _id: req.params.id }, function(err, data) {
       if (err) return handleError(err);
       res.redirect(redirectBackToArticle);
     });

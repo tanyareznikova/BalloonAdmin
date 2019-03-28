@@ -1,0 +1,37 @@
+
+<a class="newspaper-headline" href="/">
+  <h1 class="newspaper-font text-center">Связной</h1>
+</a>
+<div class="d-flex intro-bar">
+  <div class="p-2 flex-grow-1">
+    <h5 class="newspaper-font text-capitalize">{{smartfony}}</h5>
+    <p class="card-text intro-text">Вы сейчас просматриваете <span class="content-title">{{title}}</span> </p>
+  </div>
+
+  <div class="p-2">
+    <a href="/" class="btn btn-sm btn-outline-dark">
+      <i class="fas fa-home"></i> Домой
+    </a>
+  </div>
+</div>
+<div class="content-bar">
+  {{# each productReviews }}
+
+  <div class="comment-display">
+    <div class="card border-info mb-3" style="max-width: 80%;">
+      <div class="card-body text-info">
+        <h5 class="card-title">{{this.message}}</h5>
+        <p class="card-text">- {{this.name}}</p>
+        <a href="/deletecomment/{{this._id}}">
+          <class="btn btn-sm round btn-outline-danger"><i class="far fa-trash-alt"></i>
+            Delete</button>
+        </a>
+
+      </div>
+
+    </div>
+  </div>
+  {{/each}}
+
+</div> {{!-- End Content Bar --}}
+
